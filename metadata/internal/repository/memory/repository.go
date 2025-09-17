@@ -4,7 +4,7 @@ import (
 	"errors"
 	"sync"
 
-	m "github.com/ChristopherLeo15/opentable/metadata/internal/model"
+	m "github.com/ChristopherLeo15/opentable/metadata/model"
 )
 
 var (

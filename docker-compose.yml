@@ -1,69 +1,61 @@
 services:
   consul:
-    image: hashicorp/consul:1.17
-    command: agent -dev -client=0.0.0.0
+    image: hashicorp/consul:1.18
+    command: ["agent", "-dev", "-client=0.0.0.0", "-ui"]
     ports:
-      - "8500:8500"          # Consul UI / API
-      - "8600:8600/udp"
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8500/v1/status/leader"]
-      interval: 5s
-      timeout: 2s
-      retries: 10
-    networks: [ appnet ]
+      - "8500:8500"
+    environment:
+      CONSUL_BIND_INTERFACE: eth0
+    networks:
+      - appnet
 
   metadata:
     build:
       context: .
-      dockerfile: metadata/Dockerfile
-    command: ["/app","--host=0.0.0.0","--port=8081","--consul=consul:8500"]
+      dockerfile: ./metadata/Dockerfile
+    environment:
+      PORT: "8081"
+      CONSUL_HTTP_ADDR: "http://consul:8500"
+      SERVICE_NAME: "metadata"
     depends_on:
-      consul:
-        condition: service_healthy
+      - consul
     ports:
       - "8081:8081"
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8081/health"]
-      interval: 5s
-      timeout: 2s
-      retries: 10
-    networks: [ appnet ]
+    networks:
+      - appnet
 
   restaurant:
     build:
       context: .
-      dockerfile: restaurant/Dockerfile
-    command: ["/app","--host=0.0.0.0","--port=8082","--consul=consul:8500"]
+      dockerfile: ./restaurant/Dockerfile
+    environment:
+      PORT: "8082"
+      CONSUL_HTTP_ADDR: "http://consul:8500"
+      SERVICE_NAME: "restaurant"
+      METADATA_URL: "http://metadata:8081"
     depends_on:
-      consul:
-        condition: service_healthy
-      metadata:
-        condition: service_started
+      - consul
+      - metadata
     ports:
       - "8082:8082"
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8082/health"]
-      interval: 5s
-      timeout: 2s
-      retries: 10
-    networks: [ appnet ]
+    networks:
+      - appnet
 
   review:
     build:
       context: .
-      dockerfile: review/Dockerfile
-    command: ["/app","--host=0.0.0.0","--port=8083","--consul=consul:8500"]
+      dockerfile: ./review/Dockerfile
+    environment:
+      PORT: "8083"
+      CONSUL_HTTP_ADDR: "http://consul:8500"
+      SERVICE_NAME: "review"
     depends_on:
-      consul:
-        condition: service_healthy
+      - consul
     ports:
       - "8083:8083"
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8083/health"]
-      interval: 5s
-      timeout: 2s
-      retries: 10
-    networks: [ appnet ]
+    networks:
+      - appnet
 
 networks:
-  appnet: {}
+  appnet:
+    driver: bridge

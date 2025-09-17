@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	m "github.com/ChristopherLeo15/opentable/metadata/internal/model"
+	m "github.com/ChristopherLeo15/opentable/metadata/model"
 )
 
 type Repository interface {

@@ -1,66 +1,119 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"strconv"
+	"syscall"
 	"time"
 
-	"github.com/ChristopherLeo15/opentable/pkg/discovery/consul"
-	"github.com/ChristopherLeo15/opentable/pkg/discovery/memorypackage"
-	discovery "github.com/ChristopherLeo15/opentable/pkg/registry"
-
-	ctl "github.com/ChristopherLeo15/opentable/review/internal/controller/review"
-	h   "github.com/ChristopherLeo15/opentable/review/internal/handler/http"
+	ctrl "github.com/ChristopherLeo15/opentable/review/internal/controller/review"
+	h "github.com/ChristopherLeo15/opentable/review/internal/handler/http"
 	repo "github.com/ChristopherLeo15/opentable/review/internal/repository/memory"
 )
 
 func main() {
-	var (
-		port       = flag.Int("port", 8083, "http port")
-		host       = flag.String("host", "127.0.0.1", "bind host")
-		consulAddr = flag.String("consul", "", "consul addr")
-	)
+	var portFlag = flag.Int("port", 8083, "port to listen on")
 	flag.Parse()
 
-	var reg discovery.Registry
-	if *consulAddr == "" {
-		reg = memorypackage.New()
-	} else {
-		r, err := consul.NewRegistry(*consulAddr)
-		if err != nil { log.Fatal(err) }
-		reg = r
+	port := *portFlag
+	if env := os.Getenv("PORT"); env != "" {
+		if p, err := strconv.Atoi(env); err == nil {
+			port = p
+		}
 	}
 
-	ctx := context.Background()
-	const serviceName = "review"
-	instanceID := discovery.GenerateInstanceID(serviceName)
-	hostPort := fmt.Sprintf("%s:%d", *host, *port)
-	if err := reg.Register(ctx, instanceID, serviceName, hostPort); err != nil {
-		log.Fatal(err)
-	}
-	defer reg.Deregister(ctx, instanceID, serviceName)
-
-	rp := repo.New()
-	c := ctl.New(rp)
-	hd := h.New(c)
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", hd.Health)
-	mux.HandleFunc("/review", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet  { hd.List(w, r); return }
-		if r.Method == http.MethodPost { hd.Create(w, r); return }
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-	})
+	r := repo.New()
+	c := ctrl.New(r)
+	hdlr := h.New(c)
 
 	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", *port),
-		Handler:      mux,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 5 * time.Second,
+		Addr:              fmt.Sprintf(":%d", port),
+		Handler:           hdlr.Router(),
+		ReadHeaderTimeout: 5 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
-	log.Printf("review listening on :%d", *port)
-	log.Fatal(srv.ListenAndServe())
+
+	// Register in Consul
+	serviceName := getenvDefault("SERVICE_NAME", "review")
+	consulAddr := getenvDefault("CONSUL_HTTP_ADDR", "http://consul:8500")
+	serviceID := fmt.Sprintf("%s-%d", serviceName, port)
+	if err := registerWithConsul(consulAddr, serviceID, serviceName, "review", port, "/healthz"); err != nil {
+		log.Printf("consul register failed: %v", err)
+	}
+
+	go func() {
+		log.Printf("%s service listening on :%d", serviceName, port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server error: %v", err)
+		}
+	}()
+
+	// graceful shutdown & de-register
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+	<-stop
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = deregisterFromConsul(consulAddr, serviceID)
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("graceful shutdown error: %v", err)
+	} else {
+		log.Println("server stopped gracefully")
+	}
+}
+
+func getenvDefault(k, def string) string {
+	if v := os.Getenv(k); v != "" {
+		return v
+	}
+	return def
+}
+
+func registerWithConsul(consul, id, name, dnsName string, port int, healthPath string) error {
+	payload := map[string]any{
+		"ID":      id,
+		"Name":    name,
+		"Address": dnsName, // docker-compose DNS name
+		"Port":    port,
+		"Check": map[string]any{
+			"HTTP":     fmt.Sprintf("http://%s:%d%s", dnsName, port, healthPath),
+			"Interval": "10s",
+			"DeregisterCriticalServiceAfter": "1m",
+		},
+	}
+	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequest(http.MethodPut, consul+"/v1/agent/service/register", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode/100 != 2 {
+		return fmt.Errorf("consul register: status %d", resp.StatusCode)
+	}
+	return nil
+}
+
+func deregisterFromConsul(consul, id string) error {
+	req, _ := http.NewRequest(http.MethodPut, consul+"/v1/agent/service/deregister/"+id, nil)
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
 }

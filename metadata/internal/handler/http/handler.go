@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	ctrl "github.com/ChristopherLeo15/opentable/metadata/internal/controller/metadata"
-	m "github.com/ChristopherLeo15/opentable/metadata/internal/model"
+	m "github.com/ChristopherLeo15/opentable/metadata/model"
 	repoerr "github.com/ChristopherLeo15/opentable/metadata/internal/repository/memory"
 )
 
@@ -23,6 +23,10 @@ func New(c *ctrl.Controller) *Handler {
 func (h *Handler) Router() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/metadata", h.handleMetadata)
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
 	return logRequests(mux)
 }
 
