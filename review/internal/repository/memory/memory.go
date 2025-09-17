@@ -9,8 +9,8 @@ import (
 
 var ErrNotFound = errors.New("review not found")
 
-// Repo: tiny in-memory store, safe for concurrent access.
 type Repo struct {
+	// Mutex for safe concurrent access
 	mu   sync.RWMutex
 	data []m.Review
 }

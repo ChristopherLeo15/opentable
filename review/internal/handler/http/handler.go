@@ -22,7 +22,7 @@ func (h *Handler) Router() http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
-	return logRequests(mux)
+	return mux
 }
 
 func (h *Handler) handleReviews(w http.ResponseWriter, r *http.Request) {
@@ -65,7 +65,7 @@ func (h *Handler) postReview(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, out)
 }
 
-// Support functions
+// ----- Support functions -----
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")

@@ -56,7 +56,7 @@ func main() {
 		}
 	}()
 
-	// graceful shutdown & de-register
+	// Clean exit and deregister from Consul
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
@@ -66,9 +66,9 @@ func main() {
 	_ = deregisterFromConsul(consulAddr, serviceID)
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("graceful shutdown error: %v", err)
+		log.Printf("clean exit error: %v", err)
 	} else {
-		log.Println("server stopped gracefully")
+		log.Println("server stopped cleanly")
 	}
 }
 
@@ -83,9 +83,11 @@ func registerWithConsul(consul, id, name, dnsName string, port int, healthPath s
 	payload := map[string]any{
 		"ID":      id,
 		"Name":    name,
-		"Address": dnsName, // docker-compose DNS name
+		// Consul talks to our service at this DNS name and port
+		"Address": dnsName,
 		"Port":    port,
 		"Check": map[string]any{
+			// Consul will call /healthz every 10s; remove after 1m if failing
 			"HTTP":     fmt.Sprintf("http://%s:%d%s", dnsName, port, healthPath),
 			"Interval": "10s",
 			"DeregisterCriticalServiceAfter": "1m",

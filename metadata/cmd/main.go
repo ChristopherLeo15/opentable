@@ -20,7 +20,6 @@ import (
 )
 
 func main() {
-	// Allow PORT via flag or env
 	var portFlag = flag.Int("port", 8081, "port to listen on")
 	flag.Parse()
 
@@ -35,7 +34,6 @@ func main() {
 	c := ctrl.New(r)
 	h := httph.New(c)
 
-	// HTTP server with timeouts
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", port),
 		Handler:           h.Router(),
@@ -59,7 +57,7 @@ func main() {
 		}
 	}()
 
-	// Graceful shutdown & de-register
+	// Clean exit and deregister from Consul
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
@@ -69,9 +67,9 @@ func main() {
 	_ = deregisterFromConsul(consulAddr, serviceID)
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("graceful shutdown error: %v", err)
+		log.Printf("clean exit error: %v", err)
 	} else {
-		log.Println("server stopped gracefully")
+		log.Println("server stopped cleanly")
 	}
 }
 
@@ -83,13 +81,14 @@ func getenvDefault(k, def string) string {
 }
 
 func registerWithConsul(consul, id, name, dnsName string, port int, healthPath string) error {
-	// We set HTTP health check to http://<dnsName>:<port>/healthz
 	payload := map[string]any{
 		"ID":      id,
 		"Name":    name,
-		"Address": dnsName, // docker-compose DNS: service name
+		// Consul talks to our service at this DNS name and port
+		"Address": dnsName,
 		"Port":    port,
 		"Check": map[string]any{
+			// Consul will call /healthz every 10s; remove after 1m if failing
 			"HTTP":     fmt.Sprintf("http://%s:%d%s", dnsName, port, healthPath),
 			"Interval": "10s",
 			"DeregisterCriticalServiceAfter": "1m",

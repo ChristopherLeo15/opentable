@@ -10,7 +10,7 @@ import (
 	metamodel "github.com/ChristopherLeo15/opentable/metadata/model"
 )
 
-// Controller keeps in-memory restaurants (no repository layer) and calls metadata via gateway.
+// Manages restaurants in memory and fetches details from metadata service.
 type Controller struct {
 	mu    sync.RWMutex
 	items []m.Restaurant
@@ -20,17 +20,6 @@ type Controller struct {
 
 func New(gw *metagw.Gateway) *Controller {
 	return &Controller{metagw: gw, items: make([]m.Restaurant, 0, 16)}
-}
-
-// Seed is optional; handy for quick manual testing
-func (c *Controller) Seed() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.items = append(c.items,
-		m.Restaurant{ID: 1, MetadataID: 1, DisplayName: "Casa Verde — Centro"},
-		m.Restaurant{ID: 2, MetadataID: 2, DisplayName: "Pasta Nostra — Roma"},
-		m.Restaurant{ID: 3, MetadataID: 3, DisplayName: "Tokyo Bite — GDL"},
-	)
 }
 
 func (c *Controller) List(ctx context.Context) []m.Restaurant {

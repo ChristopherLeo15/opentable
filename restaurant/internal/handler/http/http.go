@@ -14,7 +14,9 @@ type Handler struct {
 	c *ctrl.Controller
 }
 
-func New(c *ctrl.Controller) *Handler { return &Handler{c: c} }
+func New(c *ctrl.Controller) *Handler {
+	return &Handler{c: c}
+}
 
 func (h *Handler) Router() http.Handler {
 	mux := http.NewServeMux()
@@ -23,7 +25,7 @@ func (h *Handler) Router() http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
-	return logRequests(mux)
+	return mux
 }
 
 func (h *Handler) handleRestaurants(w http.ResponseWriter, r *http.Request) {
@@ -40,6 +42,7 @@ func (h *Handler) handleRestaurants(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) getRestaurants(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("id")
 	if q == "" {
+		// List all records
 		writeJSON(w, http.StatusOK, h.c.List(r.Context()))
 		return
 	}
@@ -70,6 +73,8 @@ func (h *Handler) postRestaurant(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusCreated, out)
 }
+
+// ----- Support functions -----
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")

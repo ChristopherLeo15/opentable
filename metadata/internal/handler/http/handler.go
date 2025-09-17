@@ -44,7 +44,7 @@ func (h *Handler) handleMetadata(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) getMetadata(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("id")
 	if q == "" {
-		// List all
+		// List all records
 		writeJSON(w, http.StatusOK, h.c.List(r.Context()))
 		return
 	}
@@ -83,7 +83,7 @@ func (h *Handler) postMetadata(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, in)
 }
 
-// Support functions
+// ----- Support functions -----
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")

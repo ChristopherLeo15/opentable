@@ -6,7 +6,7 @@ import (
 	m "github.com/ChristopherLeo15/opentable/review/internal/model"
 )
 
-// Store keeps this controller testable & swappable.
+// Interface for saving and retrieving reviews.
 type Store interface {
 	Create(x m.Review) m.Review
 	ListByRestaurant(restaurantID int) []m.Review
@@ -26,9 +26,11 @@ func (c *Controller) ListFor(restaurantID int) []m.Review {
 }
 
 func (c *Controller) Create(r m.Review) (m.Review, error) {
+	// Simple validation
 	if err := r.Validate(); err != nil {
 		return m.Review{}, err
 	}
+
 	out := c.s.Create(r)
 	if out.ID <= 0 {
 		return m.Review{}, fmt.Errorf("failed to create review")

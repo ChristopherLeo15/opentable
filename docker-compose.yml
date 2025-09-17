@@ -32,7 +32,6 @@ services:
       PORT: "8082"
       CONSUL_HTTP_ADDR: "http://consul:8500"
       SERVICE_NAME: "restaurant"
-      METADATA_URL: "http://metadata:8081"
     depends_on:
       - consul
       - metadata
