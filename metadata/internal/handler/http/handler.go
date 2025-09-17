@@ -3,7 +3,6 @@ package http
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -27,7 +26,7 @@ func (h *Handler) Router() http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
-	return logRequests(mux)
+	return mux
 }
 
 func (h *Handler) handleMetadata(w http.ResponseWriter, r *http.Request) {
@@ -76,24 +75,18 @@ func (h *Handler) postMetadata(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid json body", http.StatusBadRequest)
 		return
 	}
-	if err := h.c.Add(r.Context(), in); err != nil {
+	out, err := h.c.Add(r.Context(), in)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	writeJSON(w, http.StatusCreated, in)
+	writeJSON(w, http.StatusCreated, out)
 }
 
-// ----- Support functions -----
+// ----- Support function -----
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
-}
-
-func logRequests(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("%s %s", r.Method, r.URL.Path)
-		next.ServeHTTP(w, r)
-	})
 }

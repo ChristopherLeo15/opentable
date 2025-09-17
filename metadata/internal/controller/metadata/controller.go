@@ -32,13 +32,16 @@ func (c *Controller) GetByID(ctx context.Context, id int) (m.Metadata, error) {
 	return c.repo.GetByID(id)
 }
 
-func (c *Controller) Add(ctx context.Context, x m.Metadata) error {
+func (c *Controller) Add(ctx context.Context, x m.Metadata) (m.Metadata, error) {
 	// Simple validation
-	if err := x.Validate(); err != nil {
-		return err
+	if x.Name == "" {
+		return m.Metadata{}, fmt.Errorf("name is required")
 	}
-	
-	// If caller didn't set an ID, auto-assign next int
+	if x.CuisineType == "" {
+		return m.Metadata{}, fmt.Errorf("cuisine_type is required")
+	}
+
+	// Auto-assign ID if not provided
 	if x.ID == 0 {
 		next := 1
 		for _, cur := range c.repo.GetAll() {
@@ -48,6 +51,7 @@ func (c *Controller) Add(ctx context.Context, x m.Metadata) error {
 		}
 		x.ID = next
 	}
+
 	c.repo.Add(x)
-	return nil
+	return x, nil
 }
