@@ -57,9 +57,15 @@ func (h *Handler) postReview(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid json body", http.StatusBadRequest)
 		return
 	}
-	out := h.c.Create(in)
+	out, err := h.c.Create(in)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	writeJSON(w, http.StatusCreated, out)
 }
+
+// Support functions
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -69,7 +75,6 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func logRequests(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// keep minimal to stay beginner-friendly
 		next.ServeHTTP(w, r)
 	})
 }

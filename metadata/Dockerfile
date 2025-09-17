@@ -1,15 +1,12 @@
 # syntax=docker/dockerfile:1
 
-# Build stage
+# Build
 FROM golang:1.23 AS builder 
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-
-# Build the metadata service
-WORKDIR /src/metadata
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/metadata ./cmd
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/metadata ./metadata/cmd
 
 # Run
 FROM alpine:3.20

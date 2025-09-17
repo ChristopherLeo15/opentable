@@ -42,7 +42,7 @@ func main() {
 		IdleTimeout:       60 * time.Second,
 	}
 
-	// Register in Consul
+	// Consul self-register
 	serviceName := getenvDefault("SERVICE_NAME", "review")
 	consulAddr := getenvDefault("CONSUL_HTTP_ADDR", "http://consul:8500")
 	serviceID := fmt.Sprintf("%s-%d", serviceName, port)

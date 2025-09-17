@@ -1,15 +1,37 @@
 package review
 
-import "github.com/ChristopherLeo15/opentable/review/internal/model"
+import (
+	"fmt"
 
+	m "github.com/ChristopherLeo15/opentable/review/internal/model"
+)
+
+// Store keeps this controller testable & swappable.
 type Store interface {
-	ListByRestaurant(int) []model.Review
-	Create(model.Review) model.Review
+	Create(x m.Review) m.Review
+	ListByRestaurant(restaurantID int) []m.Review
 }
 
-type Controller struct{ s Store }
+type Controller struct {
+	s Store
+}
 
-func New(s Store) *Controller { return &Controller{s} }
+func New(s Store) *Controller { return &Controller{s: s} }
 
-func (c *Controller) ListFor(id int) []model.Review { return c.s.ListByRestaurant(id) }
-func (c *Controller) Create(r model.Review) model.Review { return c.s.Create(r) }
+func (c *Controller) ListFor(restaurantID int) []m.Review {
+	if restaurantID <= 0 {
+		return nil
+	}
+	return c.s.ListByRestaurant(restaurantID)
+}
+
+func (c *Controller) Create(r m.Review) (m.Review, error) {
+	if err := r.Validate(); err != nil {
+		return m.Review{}, err
+	}
+	out := c.s.Create(r)
+	if out.ID <= 0 {
+		return m.Review{}, fmt.Errorf("failed to create review")
+	}
+	return out, nil
+}
