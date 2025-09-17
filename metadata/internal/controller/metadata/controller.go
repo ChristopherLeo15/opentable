@@ -1,14 +1,53 @@
 package metadata
 
 import (
-	m "github.com/ChristopherLeo15/opentable/metadata/pkg"
-	"github.com/ChristopherLeo15/opentable/metadata/internal/repository/memory"
+	"context"
+	"fmt"
+
+	m "github.com/ChristopherLeo15/opentable/metadata/internal/model"
 )
 
-type Controller struct{ repo *memory.Repo }
+type Repository interface {
+	GetAll() []m.Metadata
+	GetByID(id int) (m.Metadata, error)
+	Add(x m.Metadata)
+}
 
-func New(repo *memory.Repo) *Controller { return &Controller{repo: repo} }
+type Controller struct {
+	repo Repository
+}
 
-func (c *Controller) List() []m.Metadata           { return c.repo.All() }
-func (c *Controller) Get(id int) (m.Metadata, bool) { return c.repo.ByID(id) }
-func (c *Controller) Add(x m.Metadata)             { c.repo.Add(x) }
+func New(repo Repository) *Controller {
+	return &Controller{repo: repo}
+}
+
+func (c *Controller) List(ctx context.Context) []m.Metadata {
+	return c.repo.GetAll()
+}
+
+func (c *Controller) GetByID(ctx context.Context, id int) (m.Metadata, error) {
+	if id <= 0 {
+		return m.Metadata{}, fmt.Errorf("id must be positive")
+	}
+	return c.repo.GetByID(id)
+}
+
+func (c *Controller) Add(ctx context.Context, x m.Metadata) error {
+	// Simple validation
+	if err := x.Validate(); err != nil {
+		return err
+	}
+	
+	// If caller didn't set an ID, auto-assign next int
+	if x.ID == 0 {
+		next := 1
+		for _, cur := range c.repo.GetAll() {
+			if cur.ID >= next {
+				next = cur.ID + 1
+			}
+		}
+		x.ID = next
+	}
+	c.repo.Add(x)
+	return nil
+}
